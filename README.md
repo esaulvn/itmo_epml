@@ -21,7 +21,7 @@ esaulvn_hw1_epml
 *   Настроено виртуальное окружение, в него установлены зависимости
 
 ```
-poetry config virtualenvs.in-project true
+poetry config virtualenvs.in-project true --local
 poetry install
 poetry install --with dev
 ```

@@ -9,7 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"  
 pandas = "^2.0.0"
-numpy = "^1.24.0"
+numpy = "^2.1.2"
 scikit-learn = "^1.3.0"
 matplotlib = "^3.7.0"
 seaborn = "^0.12.0"
@@ -44,7 +44,6 @@ predict = "src.models.predict_model:main"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-# Настройки инструментов
 [tool.black]
 line-length = 88
 target-version = ['py39', 'py310', 'py311']  
@@ -55,7 +54,6 @@ line_length = 88
 multi_line_output = 3
 known_first_party = ["src"]
 
-# ВАЖНО: Обновите настройки ruff по новому формату
 [tool.ruff]
 target-version = "py311"  
 line-length = 88
