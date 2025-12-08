@@ -1,12 +1,19 @@
-FROM python:3.13-slim
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+
+RUN pip install poetry
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY pyproject.toml poetry.lock ./
 
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN poetry config virtualenvs.create false \
+    && poetry install
 
-COPY . /app
+COPY . .
 
-CMD ["python", "src/main.py"]
+CMD ["python", "src/models/train_model.py"]

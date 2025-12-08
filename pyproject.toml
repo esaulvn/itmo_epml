@@ -5,6 +5,7 @@ description = "HW1 project for EPML course"
 authors = ["esaulvn <esaulovnata@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"  
@@ -16,6 +17,7 @@ seaborn = "^0.12.0"
 jupyter = "^1.0.0"
 python-dotenv = "^1.0.0"
 loguru = "^0.7.0"
+mlflow = "^3.7.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.3.0"
@@ -25,6 +27,7 @@ mypy = "^1.8.0"
 bandit = "^1.7.7"
 pre-commit = "^3.6.0"
 ipython = "^8.10.0"
+dvc = "^3.64.2"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.0"

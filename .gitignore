@@ -76,7 +76,7 @@ target/
 .ipynb_checkpoints/
 
 # exclude data from source control by default
-
+/data/
 
 # Mac OS-specific storage files
 .DS_Store
@@ -107,7 +107,8 @@ Thumbs.db
 *.ipynb
 
 # Data & Models 
-     
+data/           
+data/raw/       
 data/processed/ 
 data/external/  
 
@@ -118,6 +119,8 @@ models/
 *.h5
 *.pt
 *.pth
+
+mlruns/
 
 reports/        
 *.png

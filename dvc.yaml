@@ -1,0 +1,32 @@
+stages:
+  prepare:
+    cmd: python src/data/prepare.py
+    deps:
+      - data/raw/dataset.csv
+      - src/data/prepare.py
+    outs:
+      - data/processed/data.pkl
+  
+  train:
+    cmd: python src/models/train_model.py
+    deps:
+      - data/processed/data.pkl
+      - src/models/train_model.py
+      - params.yaml
+    outs:
+      - models/random_forest.pkl
+      - models/feature_names.pkl
+    metrics:
+      - metrics/metrics.json:
+          cache: false
+      - metrics/classification_report.json:
+          cache: false
+      - metrics/confusion_matrix.json:
+          cache: false
+    params:
+      - model.n_estimators
+      - model.max_depth
+      - model.min_samples_split
+      - model.min_samples_leaf
+      - data.test_size
+      - data.random_state

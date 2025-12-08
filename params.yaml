@@ -1,0 +1,17 @@
+model:
+  name: "random_forest"
+  random_state: 42
+  n_estimators: 50
+  max_depth: 5
+  min_samples_split: 2
+  min_samples_leaf: 1
+  
+data:
+  test_size: 0.2
+  random_state: 42
+  stratify: true
+  
+mlflow:
+  experiment_name: "loan_prediction"
+  tracking_uri: "http://localhost:5000"
+  registered_model_name: "loan_status_predictor"
