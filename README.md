@@ -99,11 +99,5 @@ docker-compose up -d mlflow
 docker-compose run --rm train python src/models/train.py
 ```
 
-7. Для внесения изменений и трекинга:
-* 1) Изменить параметры в params.yaml
-* 2) Запустить: dvc repro
-* 3) Закоммитить изменения: git add . && git commit -m "update"
-* 4) Запушить: git push && dvc push
-
 # Отчет о проделанной работе:
 *   Создан отчет в формате Markdown
