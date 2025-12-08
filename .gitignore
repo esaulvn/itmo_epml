@@ -123,10 +123,7 @@ models/
 mlruns/
 
 reports/        
-*.png
-*.jpg
 *.pdf
-*.html
 
 # Логи и кэши
 logs/
