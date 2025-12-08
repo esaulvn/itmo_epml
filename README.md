@@ -96,7 +96,7 @@ py -m poetry run dvc repro
 6. Для запуска в контейнере запустить MLFlow, далее запустить скрипт с обучением
 ```
 docker-compose up -d mlflow
-docker-compose run --rm train python src/models/train.py
+docker-compose run --rm train python src/models/train_model.py
 ```
 
 # Отчет о проделанной работе:
