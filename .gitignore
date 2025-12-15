@@ -121,6 +121,7 @@ models/
 *.pth
 
 mlruns/
+metrics/
 
 reports/        
 *.pdf
@@ -163,3 +164,7 @@ htmlcov/
 # Temporary files
 *.tmp
 *.temp
+/models
+/metrics
+/experiments_results.csv
+/experiments_summary.json

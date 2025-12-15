@@ -25,17 +25,16 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
-def load_config(config_path: str = None):
-    """Загрузка конфигурации"""
-    if config_path:
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
-    else:
-        with open("params.yaml", 'r') as f:
-            return yaml.safe_load(f)
+def load_data():
+    with open("data/processed/data.pkl", "rb") as f:
+        data = pickle.load(f)
+    
+    if not isinstance(data, pd.DataFrame):
+        data = pd.read_csv("data/raw/dataset.csv")
+    
+    return data
 
-def prepare_features(df, config):
-    """Подготовка признаков с учетом конфига"""
+def prepare_features_simple(df, config):
     df = df.copy()
     
     drop_columns = config["data"]["preprocessing"].get("drop_columns", [])
@@ -52,7 +51,7 @@ def prepare_features(df, config):
     
     if config["data"]["preprocessing"].get("encode_categorical", True):
         for col in categorical_cols:
-            if df[col].nunique() <= 10:  
+            if df[col].nunique() <= 10:
                 le = LabelEncoder()
                 df[col] = le.fit_transform(df[col].astype(str))
             else:
@@ -86,19 +85,25 @@ def create_model(config):
     elif algo_name == "xgboost":
         return XGBClassifier(**params, eval_metric='logloss')
     else:
-        raise ValueError(f"Неизвестный алгоритм: {algo_name}")
+        raise ValueError(f"Unknown algorithm: {algo_name}")
 
-def save_metrics(y_test, y_pred, y_pred_proba, config):
+def calculate_metrics(y_test, y_pred, y_pred_proba):
     metrics = {
         'accuracy': float(accuracy_score(y_test, y_pred)),
         'precision': float(precision_score(y_test, y_pred, average='weighted')),
         'recall': float(recall_score(y_test, y_pred, average='weighted')),
         'f1_score': float(f1_score(y_test, y_pred, average='weighted')),
-        'roc_auc': float(roc_auc_score(y_test, y_pred_proba))
     }
     
+    if y_pred_proba is not None:
+        metrics['roc_auc'] = float(roc_auc_score(y_test, y_pred_proba))
+    
+    return metrics
+
+def save_metrics_files(y_test, y_pred, y_pred_proba, run_name):
     Path("metrics").mkdir(exist_ok=True)
-    run_name = config["experiment"]["run_name"]
+    
+    metrics = calculate_metrics(y_test, y_pred, y_pred_proba)
     
     with open(f"metrics/{run_name}_metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
@@ -114,46 +119,39 @@ def save_metrics(y_test, y_pred, y_pred_proba, config):
     return metrics
 
 def train_with_config(config):
-    print(f"Запуск: {config['experiment']['run_name']}")
-    print(f"Алгоритм: {config['algorithm']['name']}")
-    
+    mlflow.set_tracking_uri(config["mlflow"]["tracking_uri"])
     mlflow.set_experiment(config["experiment"]["name"])
-    
-    try:
-        with open("data/processed/data.pkl", "rb") as f:
-            data = pickle.load(f)
-    except:
-        data = pd.read_csv("data/raw/dataset.csv")
-    
-    X, y = prepare_features(data, config)
-    
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=config["data"]["test_size"],
-        random_state=config["data"]["random_state"],
-        stratify=y
-    )
     
     with mlflow.start_run(run_name=config["experiment"]["run_name"]):
         mlflow.log_params(config["algorithm"]["hyperparameters"])
-        mlflow.log_params(config["data"])
+        mlflow.log_params({f"data_{k}": v for k, v in config["data"].items()})
         
-        tags = config["mlflow"]["tags"]
-        for key, value in tags.items():
-            mlflow.set_tag(key, value)
+        for tag_key, tag_value in config["mlflow"]["tags"].items():
+            mlflow.set_tag(tag_key, tag_value)
+        
+        df = load_data()
+        X, y = prepare_features_simple(df, config)
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y,
+            test_size=config["data"]["test_size"],
+            random_state=config["data"]["random_state"],
+            stratify=y
+        )
         
         model = create_model(config)
         model.fit(X_train, y_train)
         
         y_pred = model.predict(X_test)
-        y_pred_proba = model.predict_proba(X_test)[:, 1]
-        metrics = save_metrics(y_test, y_pred, y_pred_proba, config)
+        y_pred_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+        
+        metrics = save_metrics_files(y_test, y_pred, y_pred_proba, config["experiment"]["run_name"])
         
         for metric_name, value in metrics.items():
             mlflow.log_metric(metric_name, value)
         
-        model_path = f"models/{config['experiment']['run_name']}.pkl"
         Path("models").mkdir(exist_ok=True)
+        model_path = f"models/{config['experiment']['run_name']}.pkl"
         with open(model_path, "wb") as f:
             pickle.dump(model, f)
         
@@ -163,17 +161,11 @@ def train_with_config(config):
             mlflow.log_artifact(f"metrics/{config['experiment']['run_name']}_metrics.json")
             mlflow.log_artifact(f"metrics/{config['experiment']['run_name']}_classification_report.json")
         
-        print(f"✅ Завершено. Accuracy: {metrics['accuracy']:.4f}")
-        
         return metrics
 
 def main():
-    config = load_config()
-    
-    import sys
-    if len(sys.argv) > 1:
-        config_path = sys.argv[1]
-        config = load_config(config_path)
+    with open("params.yaml", "r") as f:
+        config = yaml.safe_load(f)
     
     metrics = train_with_config(config)
     return metrics

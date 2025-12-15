@@ -29,11 +29,11 @@ stages:
     cmd: python run_experiments.py
     deps:
       - data/processed/data.pkl
-      - run_experiments.py
       - src/models/train_model.py
-      - src/utils/experiment_utils.py
-      - src/utils/mlflow_decorators.py
+      - configs/all_experiments.yaml
     outs:
+      - experiments_results.csv
+      - experiments_summary.json
       - models/:
           cache: true
     metrics:

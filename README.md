@@ -21,40 +21,29 @@ esaulvn_hw3_epml
 
 *   Установлен MLFlow, используем базу SQLite, создается в корне репозитория при запуске. 
 
-*   В файл с пайплайном dvc добавлен скрипт запускающий эксперименты, теперь можно запустить либо екфшт_ыштпду часть пайплайна для обучения с дефолтными параметрами, либо для всех экспериментов запустить пайплайн как 
+*   В файл с пайплайном dvc добавлена часть для запуска экспериментов
 
 ```
+py -m poetry install
 py -m poetry run dvc repro prepare run_experiments
 ```
 *   Созданы файлы с конфигами в папке configs для моделей 
-        random forest
-        log regression
-        xgboost
-        svm
-        knn
+    -    random forest
+    -    log regression
+    -    xgboost
+    -    svm
+    -    knn
 
-*   Для запуска с аутентификацией запускаем через src\utils\start_with_auth.py файл, который берет значения из .env переменной
+*   Для запуска MLFlow с аутентификацией запускаем в другом окошке терминала через src\utils\start_with_auth.py файл, который берет значения из .env переменной. Все так же делаем через виртуальное окружение в poetry
 
 ```
-py -m poetry run python scripts/start_with_auth.py
+py -m poetry install
+py -m poetry run python src/utils/start_with_auth.py
 ```
 
-и запуска пайплайна через
-```
-py -m poetry run dvc repro
-```
-можно увидеть результаты эксперимента в MLFlow
-![alt text](screenshots/image-2.png)
+![alt text](image.png)
 
-![alt text](screenshots/image-3.png)
 
-![alt text](screenshots/image-4.png)
-
-*   и сравнение метрик при изменении параметров 
-
-![alt text](screenshots/image-5.png)
-
-* Плюс папка mlruns с инфо о запусках пайплайна добавлена в gitignore
 
 # Проведение экспериментов:
 
