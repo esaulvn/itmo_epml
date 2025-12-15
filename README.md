@@ -1,50 +1,45 @@
-esaulvn_hw1_epml
+esaulvn_hw3_epml
 ==============================
 
+Настройка выбранного инструмента (4 балла):
 
-# Настройка DVC:
+    Установить и настроить выбранный инструмент
+    Настроить базу данных/облачное хранилище
+    Создать проект и эксперименты
+    Настроить аутентификацию и доступ
 
-*   Добавлены данные из датасета с kaggle ([Loan Approval Prediction](https://www.kaggle.com/datasets/parthpatel2130/realistic-loan-approval-dataset-us-and-canada)) в папку data/raw
-*   С помощью poetry установлен и запущен dvc, .dvc .dvcignore добавлены в репозиторий
-```
-py -m poetry run dvc init
-```
-![alt text](screenshots/image3.png)
+Проведение экспериментов (4 балла):
 
-*   Настроено remote storage (Local)
 
-![alt text](screenshots/image4.png)
 
-*   Создан файл с версией датасета и добавлен в репозиторий
+Интеграция с кодом (2 балла):
 
-![alt text](screenshots/image5.png)
 
-```
-git add data/raw/dataset.csv.dvc .gitignore
-git commit -m "Add dataset.csv via DVC"
-```
 
-*   Запушены данные в локальное хранилище через 
-```
-py -m poetry run dvc push
-```
-
-*   Создан dvc.yaml для версионирования датасета. Запуск через
-```
-py -m poetry run dvc repro
-```
-![alt text](screenshots/image-1.png)
 
 # Настройка MLFlow:
 
-*   Установлен MLFlow, создан файл params.yaml с параметрами модели, в файл с пайплайном dvc добавлена часть с обучением модели
-*   В файл train_model.py добавлен трекинг экспериментов через MLFlow и сохранение артефактов 
+*   Установлен MLFlow, используем базу SQLite, создается в корне репозитория при запуске. 
 
-* После запуска Mlflow через
+*   В файл с пайплайном dvc добавлен скрипт запускающий эксперименты, теперь можно запустить либо екфшт_ыштпду часть пайплайна для обучения с дефолтными параметрами, либо для всех экспериментов запустить пайплайн как 
+
 ```
-py -m poetry run mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --host localhost
+py -m poetry run dvc repro prepare run_experiments
 ```
-и запуска пайплайна c обработкой данных и обучением модели через
+*   Созданы файлы с конфигами в папке configs для моделей 
+        random forest
+        log regression
+        xgboost
+        svm
+        knn
+
+*   Для запуска с аутентификацией запускаем через src\utils\start_with_auth.py файл, который берет значения из .env переменной
+
+```
+py -m poetry run python scripts/start_with_auth.py
+```
+
+и запуска пайплайна через
 ```
 py -m poetry run dvc repro
 ```
@@ -61,49 +56,19 @@ py -m poetry run dvc repro
 
 * Плюс папка mlruns с инфо о запусках пайплайна добавлена в gitignore
 
-# Воспроизводимость:
+# Проведение экспериментов:
 
-*   Инструкции по воспроизведению
-1. Клонировать репозиторий
-```
-git clone --branch hw_2 https://github.com/yourusername/enginiring-practices-ml.git
-cd enginiring-practices-ml
-```
+*   Провести 15+ экспериментов с разными алгоритмами
+*   Настроить логирование метрик, параметров и артефактов
+*   Создать систему сравнения экспериментов
+*   Настроить фильтрацию и поиск экспериментов
 
-2. Задать создание виртуального окружения внутри проекта в poetry, установить все зависимости
-```
-py -m poetry config virtualenvs.in-project true --local
-py -m poetry install
-py -m poetry install --with dev
-```
+# Интеграция с кодом:
 
-3. Получить данные из dvc
-```
-py -m poetry run dvc pull
-```
-
-4. В новом терминале перейти в папку репозитория. Запустить MLflow UI для просмотра экспериментов через poetry
-```
-py -m poetry run mlflow ui --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --host localhost
-```
-Открыть http://localhost:5000
-
-4. Воспроизвести пайплайн с теми же или измененными параметрами в params.yaml
-```
-py -m poetry run dvc repro
-```
-
-6. Для запуска в контейнере запустить MLFlow, далее запустить скрипт с обучением
-```
-docker-compose up -d mlflow
-docker-compose run --rm train python src/models/train.py
-```
-
-7. Для внесения изменений и трекинга:
-* 1) Изменить параметры в params.yaml
-* 2) Запустить: dvc repro
-* 3) Закоммитить изменения: git add . && git commit -m "update"
-* 4) Запушить: git push && dvc push
+*   Интегрировать выбранный инструмент в Python код
+*   Создать декораторы для автоматического логирования
+*   Настроить контекстные менеджеры
+*   Создать утилиты для работы с экспериментами
 
 # Отчет о проделанной работе:
 *   Создан отчет в формате Markdown

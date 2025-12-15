@@ -1,166 +1,182 @@
-import json
-import pickle
-import warnings
-from pathlib import Path
-
 import mlflow
 import mlflow.sklearn
-import pandas as pd
 import yaml
+import pickle
+import json
+import pandas as pd
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score, 
+    precision_score, 
+    recall_score, 
+    f1_score,
+    roc_auc_score,
+    classification_report,
+    confusion_matrix
+)
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from pathlib import Path
+import warnings
+warnings.filterwarnings('ignore')
 
-warnings.filterwarnings("ignore")
+def load_config(config_path: str = None):
+    """Загрузка конфигурации"""
+    if config_path:
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+    else:
+        with open("params.yaml", 'r') as f:
+            return yaml.safe_load(f)
 
-
-def load_data():
-    """Загрузка обработанных данных из DVC"""
-    with open("data/processed/data.pkl", "rb") as f:
-        data = pickle.load(f)
-    return data
-
-
-def prepare_features(df):
+def prepare_features(df, config):
+    """Подготовка признаков с учетом конфига"""
     df = df.copy()
-
-    if "customer_id" in df.columns:
-        df = df.drop("customer_id", axis=1)
-
-    date_columns = df.select_dtypes(include=["datetime", "datetime64"]).columns.tolist()
+    
+    drop_columns = config["data"]["preprocessing"].get("drop_columns", [])
+    for col in drop_columns:
+        if col in df.columns:
+            df = df.drop(col, axis=1)
+    
+    date_columns = df.select_dtypes(include=['datetime', 'datetime64']).columns.tolist()
     if date_columns:
         df = df.drop(columns=date_columns)
-
-    categorical_cols = df.select_dtypes(include=["object"]).columns.tolist()
-    categorical_cols = [col for col in categorical_cols if col != "loan_status"]
-
-    df = df.drop(columns=categorical_cols)
-    X = df.drop("loan_status", axis=1)
-    y = df["loan_status"]
+    
+    categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+    categorical_cols = [col for col in categorical_cols if col != 'loan_status']
+    
+    if config["data"]["preprocessing"].get("encode_categorical", True):
+        for col in categorical_cols:
+            if df[col].nunique() <= 10:  
+                le = LabelEncoder()
+                df[col] = le.fit_transform(df[col].astype(str))
+            else:
+                df = pd.get_dummies(df, columns=[col], drop_first=True)
+    
+    if config["data"]["preprocessing"].get("scale_numerical", False):
+        numerical_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        numerical_cols = [col for col in numerical_cols if col != 'loan_status']
+        
+        if numerical_cols:
+            scaler = StandardScaler()
+            df[numerical_cols] = scaler.fit_transform(df[numerical_cols])
+    
+    X = df.drop('loan_status', axis=1)
+    y = df['loan_status']
+    
     return X, y
 
+def create_model(config):
+    algo_name = config["algorithm"]["name"]
+    params = config["algorithm"]["hyperparameters"]
+    
+    if algo_name == "random_forest":
+        return RandomForestClassifier(**params)
+    elif algo_name == "logistic_regression":
+        return LogisticRegression(**params)
+    elif algo_name == "svm":
+        return SVC(**params, probability=True)
+    elif algo_name == "knn":
+        return KNeighborsClassifier(**params)
+    elif algo_name == "xgboost":
+        return XGBClassifier(**params, eval_metric='logloss')
+    else:
+        raise ValueError(f"Неизвестный алгоритм: {algo_name}")
 
-def save_metrics(y_test, y_pred, y_pred_proba):
-    """Сохранение метрик в файл для DVC"""
+def save_metrics(y_test, y_pred, y_pred_proba, config):
     metrics = {
-        "accuracy": float(accuracy_score(y_test, y_pred)),
-        "precision": float(precision_score(y_test, y_pred, average="weighted")),
-        "recall": float(recall_score(y_test, y_pred, average="weighted")),
-        "f1_score": float(f1_score(y_test, y_pred, average="weighted")),
-        "roc_auc": float(roc_auc_score(y_test, y_pred_proba)),
+        'accuracy': float(accuracy_score(y_test, y_pred)),
+        'precision': float(precision_score(y_test, y_pred, average='weighted')),
+        'recall': float(recall_score(y_test, y_pred, average='weighted')),
+        'f1_score': float(f1_score(y_test, y_pred, average='weighted')),
+        'roc_auc': float(roc_auc_score(y_test, y_pred_proba))
     }
-
+    
     Path("metrics").mkdir(exist_ok=True)
-    with open("metrics/metrics.json", "w") as f:
+    run_name = config["experiment"]["run_name"]
+    
+    with open(f"metrics/{run_name}_metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
-
+    
     report = classification_report(y_test, y_pred, output_dict=True)
-    with open("metrics/classification_report.json", "w") as f:
+    with open(f"metrics/{run_name}_classification_report.json", "w") as f:
         json.dump(report, f, indent=2)
-
+    
     cm = confusion_matrix(y_test, y_pred).tolist()
-    with open("metrics/confusion_matrix.json", "w") as f:
+    with open(f"metrics/{run_name}_confusion_matrix.json", "w") as f:
         json.dump(cm, f)
-
+    
     return metrics
 
-
-def main():
-    print("Загружаем параметры из params.yaml")
-    with open("params.yaml", "r") as f:
-        params = yaml.safe_load(f)
-
-    data = load_data()
-    if isinstance(data, pd.DataFrame):
-        df = data
-    else:
-        df = pd.read_csv("data/raw/dataset.csv")
-
-    X, y = prepare_features(df)
-    print(f"Признаков: {X.shape[1]}")
-    print(f"Примеров: {X.shape[0]}")
-    print(f"Распределение целевой переменной:\n{y.value_counts().to_dict()}")
-
+def train_with_config(config):
+    print(f"Запуск: {config['experiment']['run_name']}")
+    print(f"Алгоритм: {config['algorithm']['name']}")
+    
+    mlflow.set_experiment(config["experiment"]["name"])
+    
+    try:
+        with open("data/processed/data.pkl", "rb") as f:
+            data = pickle.load(f)
+    except:
+        data = pd.read_csv("data/raw/dataset.csv")
+    
+    X, y = prepare_features(data, config)
+    
     X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=params["data"]["test_size"],
-        random_state=params["data"]["random_state"],
-        stratify=y,
+        X, y,
+        test_size=config["data"]["test_size"],
+        random_state=config["data"]["random_state"],
+        stratify=y
     )
-    print(f"Train: {X_train.shape[0]} ")
-    print(f"Test: {X_test.shape[0]} ")
-
-    mlflow.set_tracking_uri(params["mlflow"]["tracking_uri"])
-    mlflow.set_experiment(params["mlflow"]["experiment_name"])
-
-    with mlflow.start_run():
-        print("Начинаем эксперимент")
-
-        mlflow.log_params(params["model"])
-        mlflow.log_params(params["data"])
-
-        mlflow.set_tag("problem_type", "binary_classification")
-        mlflow.set_tag("target_variable", "loan_status")
-        mlflow.set_tag("features_count", X.shape[1])
-        mlflow.set_tag("data_shape", f"{X.shape[0]}x{X.shape[1]}")
-
-        model = RandomForestClassifier(
-            n_estimators=params["model"]["n_estimators"],
-            max_depth=params["model"]["max_depth"],
-            random_state=params["model"]["random_state"],
-            n_jobs=-1,
-        )
-
+    
+    with mlflow.start_run(run_name=config["experiment"]["run_name"]):
+        mlflow.log_params(config["algorithm"]["hyperparameters"])
+        mlflow.log_params(config["data"])
+        
+        tags = config["mlflow"]["tags"]
+        for key, value in tags.items():
+            mlflow.set_tag(key, value)
+        
+        model = create_model(config)
         model.fit(X_train, y_train)
-        print("Модель обучена")
-
+        
         y_pred = model.predict(X_test)
         y_pred_proba = model.predict_proba(X_test)[:, 1]
-        metrics = save_metrics(y_test, y_pred, y_pred_proba)
-
+        metrics = save_metrics(y_test, y_pred, y_pred_proba, config)
+        
         for metric_name, value in metrics.items():
             mlflow.log_metric(metric_name, value)
-            print(f"   {metric_name}: {value:.4f}")
-
-        print("Сохраняем модель")
-
-        model_path = "models/random_forest.pkl"
+        
+        model_path = f"models/{config['experiment']['run_name']}.pkl"
+        Path("models").mkdir(exist_ok=True)
         with open(model_path, "wb") as f:
             pickle.dump(model, f)
-
-        feature_names = list(X.columns)
-        with open("models/feature_names.pkl", "wb") as f:
-            pickle.dump(feature_names, f)
-
-        mlflow.sklearn.log_model(
-            model,
-            "model",
-            input_example=X_train.iloc[:5],
-            registered_model_name="loan_status_predictor",
-        )
-        mlflow.log_artifact("metrics/metrics.json")
-        mlflow.log_artifact("metrics/classification_report.json")
-        mlflow.log_artifact("metrics/confusion_matrix.json")
-
-        mlflow.set_tag("dvc_stage", "train")
-        mlflow.set_tag("dataset_version", "1.0")
-
-        print(f"   Модель сохранена: {model_path}")
-        print("   Метрики сохранены в папке metrics/")
-        print(f"   MLflow run ID: {mlflow.active_run().info.run_id}")
-        print(f"\n Откройте MLflow UI: {params['mlflow']['tracking_uri']}")
-
+        
+        mlflow.sklearn.log_model(model, "model")
+        
+        if config["mlflow"]["log_artifacts"]:
+            mlflow.log_artifact(f"metrics/{config['experiment']['run_name']}_metrics.json")
+            mlflow.log_artifact(f"metrics/{config['experiment']['run_name']}_classification_report.json")
+        
+        print(f"✅ Завершено. Accuracy: {metrics['accuracy']:.4f}")
+        
         return metrics
 
+def main():
+    config = load_config()
+    
+    import sys
+    if len(sys.argv) > 1:
+        config_path = sys.argv[1]
+        config = load_config(config_path)
+    
+    metrics = train_with_config(config)
+    return metrics
 
 if __name__ == "__main__":
     main()

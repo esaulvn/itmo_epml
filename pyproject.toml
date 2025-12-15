@@ -18,6 +18,12 @@ jupyter = "^1.0.0"
 python-dotenv = "^1.0.0"
 loguru = "^0.7.0"
 mlflow = "^3.7.0"
+xgboost = "^1.7.0"
+imbalanced-learn = "^0.11.0"
+optuna = "^3.3.0" 
+pyyaml = "^6.0"
+plotly = "^5.15.0"
+dvc = "^3.64.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.3.0"
@@ -27,7 +33,6 @@ mypy = "^1.8.0"
 bandit = "^1.7.7"
 pre-commit = "^3.6.0"
 ipython = "^8.10.0"
-dvc = "^3.64.2"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.0"
@@ -92,3 +97,4 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=src --cov-report=term-missing"
+

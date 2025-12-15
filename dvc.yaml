@@ -7,26 +7,35 @@ stages:
     outs:
       - data/processed/data.pkl
   
-  train:
-    cmd: python src/models/train_model.py
+  # train_single:
+  #   cmd: python src/models/train_model.py
+  #   deps:
+  #     - data/processed/data.pkl
+  #     - src/models/train_model.py
+  #     - params.yaml
+  #   outs:
+  #     - models/default/default_run.pkl
+  #   metrics:
+  #     - metrics/default/default_run_metrics.json:
+  #         cache: false
+  #   params:
+  #     - algorithm.hyperparameters.n_estimators
+  #     - algorithm.hyperparameters.max_depth
+  #     - algorithm.hyperparameters.min_samples_split
+  #     - data.test_size
+  #     - data.random_state
+  
+  run_experiments:
+    cmd: python run_experiments.py
     deps:
       - data/processed/data.pkl
+      - run_experiments.py
       - src/models/train_model.py
-      - params.yaml
+      - src/utils/experiment_utils.py
+      - src/utils/mlflow_decorators.py
     outs:
-      - models/random_forest.pkl
-      - models/feature_names.pkl
+      - models/:
+          cache: true
     metrics:
-      - metrics/metrics.json:
-          cache: false
-      - metrics/classification_report.json:
-          cache: false
-      - metrics/confusion_matrix.json:
-          cache: false
-    params:
-      - model.n_estimators
-      - model.max_depth
-      - model.min_samples_split
-      - model.min_samples_leaf
-      - data.test_size
-      - data.random_state
+      - metrics/:
+          cache: true
