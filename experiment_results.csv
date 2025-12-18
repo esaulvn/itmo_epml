@@ -1,3 +1,0 @@
-config,algorithm,accuracy,f1_score,status
-configs\all_experiments.yaml,unknown,0.0,0.0,failed: 'NoneType' object is not subscriptable
-configs\random_forest\config_1.yaml,random_forest,0.8987,0.8983989552562099,success

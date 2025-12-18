@@ -24,7 +24,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
-
+from src.utils.mlflow_decorators import mlflow_track, MLflowContext
 warnings.filterwarnings("ignore")
 
 
@@ -125,8 +125,18 @@ def save_metrics_files(y_test, y_pred, y_pred_proba, run_name):
 
     return metrics
 
-
 def train_with_config(config):
+    tags = config["mlflow"]["tags"].copy()
+    tags.update({"run_type": "experiment"})
+    
+    with MLflowContext(
+        experiment_name=config["experiment"]["name"],
+        run_name=config["experiment"]["run_name"],
+        tags=tags
+    ) as mlflow_ctx:
+        
+        mlflow_ctx.log_param("algorithm", config["algorithm"]["name"])
+        
     mlflow.set_tracking_uri(config["mlflow"]["tracking_uri"])
     mlflow.set_experiment(config["experiment"]["name"])
 
