@@ -5,37 +5,51 @@ stages:
       - data/raw/dataset.csv
       - src/data/prepare.py
     outs:
-      - data/processed/data.pkl
-  
-  # train_single:
-  #   cmd: python src/models/train_model.py
-  #   deps:
-  #     - data/processed/data.pkl
-  #     - src/models/train_model.py
-  #     - params.yaml
-  #   outs:
-  #     - models/default/default_run.pkl
-  #   metrics:
-  #     - metrics/default/default_run_metrics.json:
-  #         cache: false
-  #   params:
-  #     - algorithm.hyperparameters.n_estimators
-  #     - algorithm.hyperparameters.max_depth
-  #     - algorithm.hyperparameters.min_samples_split
-  #     - data.test_size
-  #     - data.random_state
-  
-  run_experiments:
+      - data/processed/train.pkl
+      - data/processed/test.pkl
+
+  run_single_experiment:
     cmd: python run_experiments.py
     deps:
-      - data/processed/data.pkl
+      - data/processed/train.pkl
       - src/models/train_model.py
-      - configs/all_experiments.yaml
+      - configs/conf/
+      - src/config/schema.py
+      - src/monitoring/monitor.py
+    params:
+      - experiment
+      - algorithm
+      - data
+      - mlflow
+    outs:
+      - outputs/
+      - models/${experiment.run_name}.pkl
+    metrics:
+      - metrics/${experiment.run_name}_metrics.json:
+          cache: true
+      - logs/:
+          cache: false
+
+  run_all_experiments:
+    cmd: python run_experiments.py --multirun
+    deps:
+      - data/processed/train.pkl
+      - src/models/train_model.py
+      - conf/experiments/all_experiments.yaml
     outs:
       - experiments_results.csv
       - experiments_summary.json
-      - models/:
-          cache: true
+      - models/best_model.pkl
     metrics:
-      - metrics/:
-          cache: true
+      - metrics_all/:
+          cache: false
+
+  evaluate:
+    cmd: python src/evaluate/evaluate.py
+    deps:
+      - data/processed/test.pkl
+      - models/best_model.pkl
+      - src/evaluate/evaluate.py
+    metrics:
+      - evaluation/evaluation_metrics.json:
+          cache: false

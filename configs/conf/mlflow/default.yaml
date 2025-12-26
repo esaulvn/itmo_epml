@@ -1,0 +1,11 @@
+tracking_uri: "http://localhost:5000"
+experiment_name: "loan_classification_experiments"
+tags:
+  algorithm: ${algorithm.name}
+  dataset: "loan_dataset"
+  author: "student"
+  project: "hw1_epml"
+  hydra_config: "true"
+log_artifacts: true
+register_model: false
+autolog: false

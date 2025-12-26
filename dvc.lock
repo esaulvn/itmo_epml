@@ -25,13 +25,17 @@ stages:
       size: 5707432
     - path: src/data/prepare.py
       hash: md5
-      md5: a003bd919b8134c2ed183019f0699ecb
-      size: 829
+      md5: 1e47f5ed0db037170a9fb2303a215c7c
+      size: 1045
     outs:
-    - path: data/processed/data.pkl
+    - path: data/processed/test.pkl
       hash: md5
-      md5: 7f4052cfc017e96473ca0ee44e961351
-      size: 8202535
+      md5: 866e352565c8906b0299b962ec29fd0e
+      size: 1641685
+    - path: data/processed/train.pkl
+      hash: md5
+      md5: 255e6a63f6f2f4851411b200ca4e0207
+      size: 6562042
   train:
     cmd: python src/models/train_model.py
     deps:
@@ -83,30 +87,134 @@ stages:
       hash: md5
       md5: 2c7d917668fed1a7cda623c20febead3
       size: 3255
-    - path: data/processed/data.pkl
+    - path: data/processed/train.pkl
       hash: md5
-      md5: 7f4052cfc017e96473ca0ee44e961351
-      size: 8202535
+      md5: 255e6a63f6f2f4851411b200ca4e0207
+      size: 6562042
+    - path: params.yaml
+      hash: md5
+      md5: 83566164560ad047e77ef8845216ff23
+      size: 628
     - path: src/models/train_model.py
       hash: md5
-      md5: ef0ed5c1d7114d84afb5f7ff2b56bb20
-      size: 6877
+      md5: cbff459d0d3e06943d1a5959f43a6b12
+      size: 6647
     outs:
     - path: experiments_results.csv
       hash: md5
-      md5: 1642d6d750e0dfaa1d52113dfc972c46
-      size: 3562
+      md5: db7d145ed44ec3a9befbd9552ce54ad5
+      size: 1262
     - path: experiments_summary.json
       hash: md5
-      md5: b39705725df5aeded5370f3d8929634c
-      size: 157
+      md5: 998c52cfaf436297b560965ea5a94f64
+      size: 169
     - path: metrics/
       hash: md5
-      md5: d751713988987e9331980363e24189ce.dir
-      size: 0
-      nfiles: 0
-    - path: models/
+      md5: 5ca381d9d95df0e9d10d6c40291240b7.dir
+      size: 12024
+      nfiles: 45
+    - path: models/best_model.pkl
       hash: md5
-      md5: d751713988987e9331980363e24189ce.dir
-      size: 0
-      nfiles: 0
+      md5: d04664efad8230cd564abe4294f84c3e
+      size: 366107
+  evaluate:
+    cmd: python src/evaluate/evaluate.py
+    deps:
+    - path: data/processed/test.pkl
+      hash: md5
+      md5: 866e352565c8906b0299b962ec29fd0e
+      size: 1641685
+    - path: models/best_model.pkl
+      hash: md5
+      md5: d04664efad8230cd564abe4294f84c3e
+      size: 366107
+    - path: params.yaml
+      hash: md5
+      md5: 83566164560ad047e77ef8845216ff23
+      size: 628
+    - path: src/evaluate/evaluate.py
+      hash: md5
+      md5: 097919e3863e4f4e722ab73abd548f40
+      size: 2477
+    - path: src/models/train_model.py
+      hash: md5
+      md5: cbff459d0d3e06943d1a5959f43a6b12
+      size: 6647
+    outs:
+    - path: evaluation/evaluation_metrics.json
+      hash: md5
+      md5: d2042c4062eaf62bd4b9b963fe04f8b4
+      size: 152
+  run_single_experiment:
+    cmd: python run_experiments.py
+    deps:
+    - path: configs/conf/
+      hash: md5
+      md5: e1f3011340efe05f2d33d1d0a025ae6d.dir
+      size: 4691
+      nfiles: 10
+    - path: data/processed/train.pkl
+      hash: md5
+      md5: 255e6a63f6f2f4851411b200ca4e0207
+      size: 6562042
+    - path: src/config/schema.py
+      hash: md5
+      md5: ae02fb44a006046dd30e629a1cdfb501
+      size: 3771
+    - path: src/models/train_model.py
+      hash: md5
+      md5: 4b8a97979b88891192e6848f9becb1a5
+      size: 9516
+    - path: src/monitoring/monitor.py
+      hash: md5
+      md5: ebb33d622921c562218f577ee93d03fa
+      size: 6497
+    params:
+      params.yaml:
+        algorithm:
+          name: random_forest
+          hyperparameters:
+            n_estimators: 100
+            max_depth: 10
+            min_samples_split: 2
+            min_samples_leaf: 1
+            random_state: 42
+        data:
+          test_size: 0.2
+          random_state: 42
+          preprocessing:
+            drop_columns:
+            - customer_id
+            encode_categorical: true
+            scale_numerical: false
+        experiment:
+          name: binary_classification_loan
+          run_name: default_run
+        mlflow:
+          tracking_uri: http://localhost:5000
+          tags:
+            algorithm: random_forest
+            version: v1.0
+            dataset: loan_dataset
+            author: student
+          log_artifacts: true
+          register_model: false
+    outs:
+    - path: logs/
+      hash: md5
+      md5: c2362085e1c0733ca1184a7b6b1fcf9b.dir
+      size: 1604
+      nfiles: 3
+    - path: metrics/default_run_metrics.json
+      hash: md5
+      md5: 5bc47699b29dc54e30c184c72750b5d0
+      size: 152
+    - path: models/default_run.pkl
+      hash: md5
+      md5: 2d33310ed8a28584ae84c6176e14d091
+      size: 6838272
+    - path: outputs/
+      hash: md5
+      md5: 6bb26b143b437eafa12abcd83d55f9ba.dir
+      size: 4327
+      nfiles: 4

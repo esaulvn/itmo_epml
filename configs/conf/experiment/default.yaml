@@ -1,0 +1,4 @@
+name: "binary_classification_loan"
+run_name: "default_run"
+description: "Default experiment configuration"
+tags: ["default", "baseline"]

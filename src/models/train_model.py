@@ -27,6 +27,11 @@ from xgboost import XGBClassifier
 from src.utils.mlflow_decorators import mlflow_track, MLflowContext
 warnings.filterwarnings("ignore")
 
+from omegaconf import DictConfig, OmegaConf
+from src.monitoring.monitor import ExperimentMonitor, PerformanceMonitor
+
+
+
 
 def load_data():
     with open("data/processed/data.pkl", "rb") as f:
@@ -111,7 +116,7 @@ def save_metrics_files(y_test, y_pred, y_pred_proba, run_name):
     Path("metrics").mkdir(exist_ok=True)
 
     metrics = calculate_metrics(y_test, y_pred, y_pred_proba)
-
+    
     with open(f"metrics/{run_name}_metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
@@ -125,73 +130,130 @@ def save_metrics_files(y_test, y_pred, y_pred_proba, run_name):
 
     return metrics
 
-def train_with_config(config):
-    tags = config["mlflow"]["tags"].copy()
-    tags.update({"run_type": "experiment"})
+def load_train_data():
+    with open("data/processed/train.pkl", "rb") as f:
+        data = pickle.load(f)
     
-    with MLflowContext(
-        experiment_name=config["experiment"]["name"],
-        run_name=config["experiment"]["run_name"],
-        tags=tags
-    ) as mlflow_ctx:
-        
-        mlflow_ctx.log_param("algorithm", config["algorithm"]["name"])
-        
+    if not isinstance(data, pd.DataFrame):
+        data = pd.read_csv("data/raw/dataset.csv")
+        from sklearn.model_selection import train_test_split
+        data, _ = train_test_split(data, test_size=0.2, random_state=42, stratify=data['loan_status'])
+    
+    return data
+
+def train_with_config(config):
+    if isinstance(config, DictConfig):
+        config = OmegaConf.to_container(config, resolve=True)
+    
+    monitor = ExperimentMonitor()
+    perf_monitor = PerformanceMonitor()
+    
+    monitor.start_experiment(config["experiment"]["run_name"])
+    monitor.log_config(config)
+    
+    if hasattr(config, '_metadata'):
+
+        import omegaconf
+        config = omegaconf.OmegaConf.to_container(config, resolve=True)
+    
     mlflow.set_tracking_uri(config["mlflow"]["tracking_uri"])
     mlflow.set_experiment(config["experiment"]["name"])
-
-    with mlflow.start_run(run_name=config["experiment"]["run_name"]):
+    
+    with mlflow.start_run(run_name=config["experiment"]["run_name"], nested=True):
         mlflow.log_params(config["algorithm"]["hyperparameters"])
-        mlflow.log_params({f"data_{k}": v for k, v in config["data"].items()})
-
-        for tag_key, tag_value in config["mlflow"]["tags"].items():
+        mlflow.log_params({f"data_{k}": v for k, v in config["data"].items() 
+                          if not isinstance(v, dict)})
+        
+        tags = config["mlflow"].get("tags", {})
+        tags.update({
+            "experiment_name": config["experiment"]["name"],
+            "algorithm": config["algorithm"]["name"],
+            "hydra_run": "true"
+        })
+        
+        for tag_key, tag_value in tags.items():
             mlflow.set_tag(tag_key, tag_value)
-
-        df = load_data()
-        X, y = prepare_features_simple(df, config)
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X,
-            y,
-            test_size=config["data"]["test_size"],
-            random_state=config["data"]["random_state"],
-            stratify=y,
-        )
-
-        model = create_model(config)
-        model.fit(X_train, y_train)
-
-        y_pred = model.predict(X_test)
-        y_pred_proba = (
-            model.predict_proba(X_test)[:, 1]
-            if hasattr(model, "predict_proba")
-            else None
-        )
-
-        metrics = save_metrics_files(
-            y_test, y_pred, y_pred_proba, config["experiment"]["run_name"]
-        )
-
-        for metric_name, value in metrics.items():
-            mlflow.log_metric(metric_name, value)
-
-        Path("models").mkdir(exist_ok=True)
-        model_path = f"models/{config['experiment']['run_name']}.pkl"
-        with open(model_path, "wb") as f:
-            pickle.dump(model, f)
-
-        mlflow.sklearn.log_model(model, "model")
-
-        if config["mlflow"]["log_artifacts"]:
-            mlflow.log_artifact(
-                f"metrics/{config['experiment']['run_name']}_metrics.json"
+        
+        try:
+            monitor.log_info("Загрузка данных")
+            perf_monitor.capture_snapshot()
+            
+            df = load_train_data()
+            X, y = prepare_features_simple(df, config)
+            
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y,
+                test_size=config["data"]["test_size"],
+                random_state=config["data"]["random_state"],
+                stratify=y,
             )
-            mlflow.log_artifact(
-                f"metrics/{config['experiment']['run_name']}_classification_report.json"
+            
+            monitor.log_info(f"Данные загружены: {X.shape[0]} samples, {X.shape[1]} features")
+            monitor.log_info(f"Train: {X_train.shape[0]}, Test: {X_test.shape[0]}")
+            
+            monitor.log_info(f"Создание модели: {config['algorithm']['name']}")
+            model = create_model(config)
+            
+            monitor.log_info("Обучение модели")
+            perf_monitor.capture_snapshot()
+            model.fit(X_train, y_train)
+            perf_monitor.capture_snapshot()
+            
+            y_pred = model.predict(X_test)
+            y_pred_proba = (
+                model.predict_proba(X_test)[:, 1]
+                if hasattr(model, "predict_proba")
+                else None
             )
-
-        return metrics
-
+            
+            metrics = calculate_metrics(y_test, y_pred, y_pred_proba)
+            
+            metrics.update({
+                "train_samples": len(X_train),
+                "test_samples": len(X_test),
+                "n_features": X.shape[1]
+            })
+            
+            save_metrics_files(y_test, y_pred, y_pred_proba, 
+                             config["experiment"]["run_name"])
+            
+            for metric_name, value in metrics.items():
+                mlflow.log_metric(metric_name, value)
+            
+            monitor.log_metrics(metrics)
+            
+            Path("models").mkdir(exist_ok=True)
+            model_path = f"models/{config['experiment']['run_name']}.pkl"
+            with open(model_path, "wb") as f:
+                pickle.dump(model, f)
+            
+            mlflow.sklearn.log_model(model, "model")
+            
+            if config["mlflow"]["log_artifacts"]:
+                mlflow.log_artifact(f"metrics/{config['experiment']['run_name']}_metrics.json")
+                mlflow.log_artifact(f"metrics/{config['experiment']['run_name']}_classification_report.json")
+            
+            perf_report = perf_monitor.get_report()
+            monitor.log_info(f"Отчет производительности: {perf_report}")
+            
+            monitor.send_notification(
+                f"Эксперимент {config['experiment']['run_name']} завершен успешно. "
+                f"Accuracy: {metrics.get('accuracy', 0):.4f}",
+                level="info"
+            )
+            
+            monitor.end_experiment("success")
+            
+            return metrics
+            
+        except Exception as e:
+            monitor.log_error(str(e))
+            monitor.send_notification(
+                f"Эксперимент {config['experiment']['run_name']} завершен с ошибкой: {str(e)}",
+                level="error"
+            )
+            monitor.end_experiment("failed")
+            raise
 
 def main():
     with open("params.yaml", "r") as f:

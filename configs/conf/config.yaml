@@ -1,0 +1,13 @@
+defaults:
+  - experiment: default
+  - algorithm: random_forest
+  - data: default
+  - mlflow: default
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

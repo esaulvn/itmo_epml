@@ -1,0 +1,9 @@
+
+name: "svm"
+hyperparameters:
+  C: 1.0
+  kernel: "rbf"
+  gamma: "scale"
+  random_state: 42
+  tol: 0.01
+  max_iter: 100s
