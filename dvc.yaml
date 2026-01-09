@@ -2,54 +2,94 @@ stages:
   prepare:
     cmd: python src/data/prepare.py
     deps:
-      - data/raw/dataset.csv
-      - src/data/prepare.py
+    - data/raw/dataset.csv
+    - src/data/prepare.py
     outs:
-      - data/processed/train.pkl
-      - data/processed/test.pkl
+    - data/processed/train.pkl
+    - data/processed/test.pkl
 
-  run_single_experiment:
-    cmd: python run_experiments.py
+  # run_single_experiment:
+  #   cmd: python run_experiments.py
+  #   deps:
+  #     - data/processed/train.pkl
+  #     - src/models/train_model.py
+  #     - configs/conf/
+  #     - src/config/schema.py
+  #     - src/monitoring/monitor.py
+  #   params:
+  #     - experiment
+  #     - algorithm
+  #     - data
+  #     - mlflow
+  #   outs:
+  #     - outputs/
+  #     - models/${experiment.run_name}.pkl
+  #   metrics:
+  #     - metrics/${experiment.run_name}_metrics.json:
+  #         cache: true
+  #     - logs/:
+  #         cache: false
+
+  # run_all_experiments:
+  #   cmd: python run_experiments.py --multirun
+  #   deps:
+  #     - data/processed/train.pkl
+  #     - src/models/train_model.py
+  #     - conf/experiments/all_experiments.yaml
+  #   outs:
+  #     - experiments_results.csv
+  #     - experiments_summary.json
+  #     - models/best_model.pkl
+  #   metrics:
+  #     - metrics_all/:
+  #         cache: false
+
+  run_single_experiment_clearml:
+    cmd: python run_experiments_clearml.py
     deps:
-      - data/processed/train.pkl
-      - src/models/train_model.py
-      - configs/conf/
-      - src/config/schema.py
-      - src/monitoring/monitor.py
+    - data/processed/train.pkl
+    - src/models/train_model_clearml.py
+    - configs/conf/
+    - src/utils/clearml_decorators.py
+    - src/utils/clearml_experiment_utils.py
     params:
-      - experiment
-      - algorithm
-      - data
-      - mlflow
+    - experiment
+    - algorithm
+    - data
     outs:
-      - outputs/
-      - models/${experiment.run_name}.pkl
+    - outputs_cm/
+    - models/${experiment.run_name}.pkl
     metrics:
-      - metrics/${experiment.run_name}_metrics.json:
-          cache: true
-      - logs/:
-          cache: false
+    - metrics/${experiment.run_name}_metrics.json:
+        cache: false
+    - logs/:
+        cache: false
 
-  run_all_experiments:
-    cmd: python run_experiments.py --multirun
+  run_all_experiments_clearml:
+    cmd: python run_experiments_clearml.py --all
     deps:
       - data/processed/train.pkl
-      - src/models/train_model.py
-      - conf/experiments/all_experiments.yaml
+      - src/models/train_model_clearml.py
+      - configs/conf/experiments/all_experiments.yaml
+      - src/utils/clearml_experiment_utils.py
     outs:
-      - experiments_results.csv
-      - experiments_summary.json
-      - models/best_model.pkl
+      - experiments_results_clearml.csv
+      - experiments_summary_clearml.json
+      - models/best_model_clearml.pkl
+      - experiments_comparison_clearml.csv
+      - models_comparison_clearml.csv
+      - clearml_dashboard.html
     metrics:
       - metrics_all/:
           cache: false
 
-  evaluate:
-    cmd: python src/evaluate/evaluate.py
+
+  evaluate_clearml:
+    cmd: python src/evaluate/evaluate_clearml.py
     deps:
-      - data/processed/test.pkl
-      - models/best_model.pkl
-      - src/evaluate/evaluate.py
+    - data/processed/test.pkl
+    - models/best_model_clearml.pkl
+    - src/evaluate/evaluate_clearml.py
     metrics:
-      - evaluation/evaluation_metrics.json:
-          cache: false
+    - evaluation/evaluation_metrics_clearml.json:
+        cache: false
