@@ -1,6 +1,3 @@
-"""
-Оценка лучшей модели с ClearML трекингом
-"""
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -13,10 +10,8 @@ from pathlib import Path
 from datetime import datetime
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 
-# ClearML imports
 from clearml import Task
 
-# Local imports
 from src.models.train_model_clearml import prepare_features_simple, load_test_data
 from src.utils.clearml_experiment_utils import ClearMLModelRegistry
 
@@ -38,7 +33,6 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
     
-    # Инициализация задачи ClearML для оценки
     task = Task.init(
         project_name="LoanClassification_Evaluation",
         task_name="evaluate_best_model_clearml",
@@ -47,17 +41,13 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
     )
     
     try:
-        # Загрузка тестовых данных
         test_df = load_test_data()
         
-        # Подготовка фич (нужен config для prepare_features_simple)
         X_test, y_test = prepare_features_simple(test_df, config)
         
-        # Загрузка лучшей модели
         model_path = "models/best_model_clearml.pkl"
         if not os.path.exists(model_path):
             print(f"Файл модели не найден: {model_path}")
-            # Пробуем найти другую модель
             model_files = list(Path("models").glob("*.pkl"))
             if model_files:
                 model_path = str(model_files[0])
@@ -66,11 +56,9 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
         with open(model_path, "rb") as f:
             model = pickle.load(f)
         
-        # Предсказание
         y_pred = model.predict(X_test)
         y_pred_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
         
-        # Расчет метрик
         metrics = {
             'accuracy': float(accuracy_score(y_test, y_pred)),
             'precision': float(precision_score(y_test, y_pred, average='weighted')),
@@ -81,7 +69,6 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
         if y_pred_proba is not None:
             metrics['roc_auc'] = float(roc_auc_score(y_test, y_pred_proba))
         
-        # Логирование метрик в ClearML
         logger = task.get_logger()
         for metric_name, value in metrics.items():
             logger.report_scalar(
@@ -91,15 +78,12 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
                 iteration=0
             )
         
-        # Сохранение метрик в файл
         Path("evaluation").mkdir(exist_ok=True)
         with open("evaluation/evaluation_metrics_clearml.json", "w") as f:
             json.dump(metrics, f, indent=2)
         
-        # Загрузка артефактов
         task.upload_artifact('evaluation_metrics', "evaluation/evaluation_metrics_clearml.json")
         
-        # Создание отчета классификации
         from sklearn.metrics import classification_report
         report = classification_report(y_test, y_pred, output_dict=True)
         report_path = "evaluation/classification_report_clearml.json"
@@ -108,10 +92,8 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
         
         task.upload_artifact('classification_report', report_path)
         
-        print("✅ Оценка завершена!")
-        print(f"📊 Метрики оценки: {metrics}")
+        print(f"Метрики оценки: {metrics}")
         
-        # Регистрация оцененной модели
         model_registry = ClearMLModelRegistry(project_name="LoanClassification_Models")
         registered_model = model_registry.register_model(
             model_path=model_path,
@@ -126,16 +108,14 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
             description=f"Model evaluated on test set with accuracy {metrics['accuracy']:.4f}"
         )
         
-        print(f"📋 Модель зарегистрирована в реестре: {registered_model.id}")
+        print(f"Модель зарегистрирована в реестре: {registered_model.id}")
         
-        # Промоутим модель в продакшн
-        if metrics['accuracy'] > 0.7:  # Пример порога
+        if metrics['accuracy'] > 0.7: 
             model_registry.promote_model(
                 model_id=registered_model.id,
                 stage="production",
                 description=f"Promoted to production after evaluation with accuracy {metrics['accuracy']:.4f}"
             )
-            print("🚀 Модель промоутирована в production!")
         
         task.set_tags({
             "status": "success",
@@ -147,7 +127,7 @@ def evaluate_best_model_clearml(config_path: str = "params.yaml"):
         return metrics
         
     except Exception as e:
-        print(f"❌ Ошибка при оценке: {e}")
+        print(f"Ошибка при оценке: {e}")
         task.set_tags({"status": "failed", "error": str(e)})
         task.close()
         raise
