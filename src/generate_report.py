@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 
 METRICS_DIR = Path("metrics")
-REPORTS_DIR = Path("docs/reports")
+REPORTS_DIR = Path("docs")
 ASSETS_DIR = Path("docs/assets")
 
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)

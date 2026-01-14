@@ -22,7 +22,7 @@ nav:
   - Deployment: deployment.md
   - Usage: usage.md
   - Experiments:
-      - Overview: reports/experiments.md
+      - Overview: experiments.md
   - API Reference:
     - Overview: api.md
 
