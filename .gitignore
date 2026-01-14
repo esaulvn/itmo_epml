@@ -121,7 +121,6 @@ models/
 *.pth
 
 mlruns/
-metrics/
 
 reports/        
 *.pdf
