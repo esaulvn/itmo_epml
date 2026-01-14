@@ -1,0 +1,49 @@
+site_name: ITMO EPML Documentation
+repo_name: esaulvn/itmo_epml
+repo_url: https://github.com/esaulvn/itmo_epml
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Deployment: deployment.md
+  - Usage: usage.md
+  - Experiments:
+      - Overview: reports/experiments.md
+  - API Reference:
+    - Overview: api.md
+
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_source: false
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            members_order: source
+            inherited_members: true
+            show_submodules: true
+            docstring_style: google
+          # setup_commands:
+          #   - import sys
+          #   - sys.path.append("src")
+          #   - sys.path.append("")
+

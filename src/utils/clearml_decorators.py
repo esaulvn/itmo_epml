@@ -1,3 +1,8 @@
+"""
+Модуль для интеграции с ClearML, предоставляющий декораторы и контекстные менеджеры
+для автоматического трекинга экспериментов.
+"""
+
 import functools
 import inspect
 import time
@@ -20,17 +25,62 @@ def clearml_track(
     auto_connect_frameworks: bool = True,
 ):
     """
+    Декоратор для автоматического трекинга выполнения функций в ClearML.
+    
+    Автоматически создает задачу ClearML при вызове декорируемой функции,
+    логирует параметры, метрики, модели и артефакты.
+    
+    Пример использования:
+    ```python
+    @clearml_track(
+        project_name="LoanClassification",
+        task_name="train_model",
+        tags=["baseline", "xgboost"]
+    )
+    def train_model(data_path: str, n_estimators: int = 100) -> dict:
+        # Тренировка модели
+        model = XGBClassifier(n_estimators=n_estimators)
+        model.fit(X_train, y_train)
+        
+        # Расчет метрик
+        accuracy = model.score(X_test, y_test)
+        
+        return {
+            "model": model,
+            "accuracy": accuracy,
+            "f1_score": 0.92
+        }
+    ```
+    
     Args:
-        project_name: Название проекта в ClearML
-        task_name: Название эксперимента
-        tags: Список тегов
-        log_params: Логировать параметры функции
-        log_metrics: Логировать метрики из результата
-        log_model: Логировать модель, если результат имеет метод predict
-        log_artifacts: Логировать артефакты
-        reuse_last_task_id: Переиспользовать последнюю задачу
-        auto_connect_frameworks: Автоматически подключать фреймворки
+        project_name (str, optional): Название проекта в ClearML. 
+            Если не указано, используется значение из переменной окружения 
+            CLEARML_PROJECT или "DefaultProject"
+        task_name (str, optional): Название задачи (эксперимента). 
+            По умолчанию используется имя декорируемой функции
+        tags (list, optional): Список тегов для задачи
+        log_params (bool): Логировать параметры функции. 
+            Логируются только параметры простых типов (int, float, str, bool, None)
+        log_metrics (bool): Логировать метрики из результата функции.
+            Ожидает, что функция возвращает словарь, из которого извлекаются 
+            числовые значения
+        log_model (bool): Логировать модель, если результат имеет метод predict
+        log_artifacts (bool): Логировать артефакты (в текущей реализации 
+            используется для логирования моделей при log_model=True)
+        reuse_last_task_id (bool): Переиспользовать последнюю задачу с тем же именем
+        auto_connect_frameworks (bool): Автоматически подключать фреймворки 
+            (PyTorch, TensorFlow и т.д.)
+    
+    Returns:
+        Callable: Декорированная функция
+        
+    Notes:
+        - Функция должна возвращать словарь для логирования метрик
+        - Для логирования модели результат функции должен иметь метод predict
+        - В случае исключения задача помечается как failed и исключение пробрасывается
+        - Время выполнения функции автоматически логируется как метрика
     """
+    
     def decorator(func: Callable):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -130,18 +180,38 @@ def clearml_track(
 
 class ClearMLContext:
     """
-    Контекстный менеджер для ClearML задач
+    Контекстный менеджер для работы с ClearML задачами.
     
-    ```
+    Позволяет более гибко управлять трекингом экспериментов по сравнению
+    с декоратором clearml_track. Подходит для случаев, когда нужно
+    логировать данные из разных частей кода.
+    
+    Пример использования:
+    ```python
     with ClearMLContext(
         project_name="LoanClassification",
         task_name="experiment_1",
         tags=["baseline", "random_forest"]
     ) as exp:
         exp.log_parameter("n_estimators", 100)
-        exp.log_metric("accuracy", 0.95)
+        exp.log_parameter("max_depth", 10)
+        
+        model = RandomForestClassifier(n_estimators=100, max_depth=10)
+        model.fit(X_train, y_train)
+        
+        accuracy = model.score(X_test, y_test)
+        exp.log_metric("accuracy", accuracy)
+        
+        exp.log_model(model, "random_forest_model")
         exp.log_artifact("metrics.json")
     ```
+    
+    Args:
+        project_name (str): Название проекта в ClearML
+        task_name (str): Название задачи (эксперимента)
+        tags (list, optional): Список тегов для задачи
+        auto_connect_frameworks (bool): Автоматически подключать фреймворки
+        reuse_last_task_id (bool): Переиспользовать последнюю задачу с тем же именем
     """
     
     def __init__(
@@ -161,6 +231,12 @@ class ClearMLContext:
         self.logger = None
         
     def __enter__(self):
+        """
+        Вход в контекст. Создает задачу ClearML.
+        
+        Returns:
+            ClearMLContext: Сам объект контекста
+        """
         self.task = Task.init(
             project_name=self.project_name,
             task_name=self.task_name,
@@ -173,6 +249,14 @@ class ClearMLContext:
         return self
     
     def log_parameter(self, key: str, value: Any):
+        """
+        Логирует один параметр.
+        
+        Args:
+            key (str): Ключ параметра
+            value (Any): Значение параметра. Простые типы логируются как есть,
+                сложные типы конвертируются в строку
+        """
         if self.task:
             if isinstance(value, (int, float, str, bool, type(None))):
                 self.task.connect({key: value})
@@ -180,6 +264,12 @@ class ClearMLContext:
                 self.task.connect({key: str(value)})
     
     def log_parameters(self, params: Dict[str, Any]):
+        """
+        Логирует несколько параметров.
+        
+        Args:
+            params (Dict[str, Any]): Словарь параметров для логирования
+        """
         if self.task:
             processed_params = {}
             for key, value in params.items():
@@ -190,6 +280,14 @@ class ClearMLContext:
             self.task.connect(processed_params)
     
     def log_metric(self, name: str, value: float, iteration: int = 0):
+        """
+        Логирует одну метрику.
+        
+        Args:
+            name (str): Название метрики
+            value (float): Значение метрики
+            iteration (int): Номер итерации (по умолчанию 0)
+        """
         if self.logger:
             self.logger.report_scalar(
                 title="metrics",
@@ -199,6 +297,13 @@ class ClearMLContext:
             )
     
     def log_metrics(self, metrics: Dict[str, float], iteration: int = 0):
+        """
+        Логирует несколько метрик.
+        
+        Args:
+            metrics (Dict[str, float]): Словарь метрик для логирования
+            iteration (int): Номер итерации (по умолчанию 0)
+        """
         if self.logger:
             for name, value in metrics.items():
                 self.logger.report_scalar(
@@ -209,11 +314,26 @@ class ClearMLContext:
                 )
     
     def log_artifact(self, local_path: str, artifact_name: Optional[str] = None):
+        """
+        Загружает артефакт в ClearML.
+        
+        Args:
+            local_path (str): Путь к локальному файлу
+            artifact_name (str, optional): Имя артефакта в ClearML.
+                Если не указано, используется имя файла
+        """
         if self.task:
             name = artifact_name or os.path.basename(local_path)
             self.task.upload_artifact(name, local_path)
     
     def log_model(self, model, model_name: str = "model"):
+        """
+        Сериализует и загружает модель в ClearML.
+        
+        Args:
+            model: Объект модели (должен поддерживать pickle)
+            model_name (str): Имя модели в ClearML
+        """
         if self.task:
             import pickle
             import tempfile
@@ -225,6 +345,13 @@ class ClearMLContext:
             os.unlink(temp_path)
     
     def log_text(self, text: str, name: str = "log"):
+        """
+        Сохраняет текстовые данные как артефакт.
+        
+        Args:
+            text (str): Текст для сохранения
+            name (str): Имя артефакта
+        """
         if self.task:
             import tempfile
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
@@ -235,14 +362,35 @@ class ClearMLContext:
             os.unlink(temp_path)
     
     def set_tag(self, key: str, value: str):
+        """
+        Устанавливает один тег для задачи.
+        
+        Args:
+            key (str): Ключ тега
+            value (str): Значение тега
+        """
         if self.task:
             self.task.set_tags({key: value})
     
     def set_tags(self, tags: Dict[str, str]):
+        """
+        Устанавливает несколько тегов для задачи.
+        
+        Args:
+            tags (Dict[str, str]): Словарь тегов
+        """
         if self.task:
             self.task.set_tags(tags)
     
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Выход из контекста. Закрывает задачу ClearML.
+        
+        Args:
+            exc_type: Тип исключения (если было)
+            exc_val: Значение исключения (если было)
+            exc_tb: Traceback исключения (если было)
+        """
         if self.task:
             if exc_type is not None:
                 self.task.set_tags({
@@ -257,14 +405,58 @@ class ClearMLContext:
 
 
 class ClearMLHydraIntegration:
+    """
+    Класс для интеграции ClearML с Hydra конфигурацией.
+    
+    Позволяет логировать конфигурации Hydra в ClearML как параметры
+    и как YAML артефакты.
+    
+    Пример использования:
+    ```python
+    @hydra.main(config_path="conf", config_name="config")
+    def main(cfg):
+        task = Task.current_task()
+        hydra_integration = ClearMLHydraIntegration.from_current_task()
+        hydra_integration.log_hydra_config(cfg)
+        
+        # ... основной код ...
+    ```
+    """
+    
     def __init__(self, task: Task):
+        """
+        Инициализирует интеграцию с Hydra.
+        
+        Args:
+            task (Task): Объект задачи ClearML
+        """
         self.task = task
     
     @classmethod
     def from_current_task(cls):
+        """
+        Создает экземпляр класса из текущей задачи ClearML.
+        
+        Returns:
+            ClearMLHydraIntegration: Экземпляр класса
+            
+        Raises:
+            RuntimeError: Если нет текущей задачи ClearML
+        """
         return cls(Task.current_task())
     
     def log_hydra_config(self, cfg):
+        """
+        Логирует конфигурацию Hydra в ClearML.
+        
+        Args:
+            cfg: Конфигурация Hydra (обычно DictConfig)
+            
+        Notes:
+            - Конфигурация логируется как параметры задачи
+            - Также сохраняется как YAML файл артефакт
+            - В случае ошибки выводится предупреждение, но исключение не пробрасывается
+        """
         if not self.task:
             return
         

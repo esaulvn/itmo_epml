@@ -1,0 +1,33 @@
+name: Deploy Dosc to GitHub Pages on push to hw_6 branch
+
+on:
+  push:
+    branches:
+      - hw_6  
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          poetry install --with dev
+
+      - name: Generate experiment report
+        run: |
+          poetry run python scripts/generate_report.py
+
+      - name: Build and deploy
+        run: |
+          poetry run mkdocs gh-deploy --force
