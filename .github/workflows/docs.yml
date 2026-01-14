@@ -6,6 +6,11 @@ on:
       - hw_6  
   pull_request:
 
+
+permissions:
+  contents: write 
+
+  
 jobs:
   build:
     runs-on: ubuntu-latest
