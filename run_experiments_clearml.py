@@ -1,5 +1,5 @@
 """
-Запуск экспериментов с ClearML вместо MLflow
+Запуск экспериментов с ClearML
 """
 import pandas as pd
 import pickle
@@ -22,6 +22,17 @@ from src.utils.clearml_experiment_utils import (
 
 
 def save_results_clearml(cfg, metrics, status):
+    """
+    Сохраняет результаты эксперимента ClearML в JSON файл.
+    
+    Args:
+        cfg: Конфигурация эксперимента (словарь или объект конфигурации)
+        metrics: Метрики, полученные в результате эксперимента
+        status: Статус завершения эксперимента ("success" или "failed")
+    
+    Returns:
+        dict: Словарь с сохраненными результатами
+    """
     results_dir = Path("experiments_results_clearml")
     results_dir.mkdir(exist_ok=True)
     
@@ -54,6 +65,22 @@ def save_results_clearml(cfg, metrics, status):
 
 @hydra.main(version_base="1.3", config_path="configs/conf", config_name="config")
 def run_single_experiment_clearml(cfg: DictConfig):
+    """
+    Запускает одиночный эксперимент с использованием ClearML.
+    
+    Функция-обертка для Hydra, которая:
+    1. Загружает и валидирует конфигурацию
+    2. Инициализирует мониторинг ClearML
+    3. Запускает обучение модели
+    4. Логирует результаты и метрики
+    5. Обрабатывает ошибки
+    
+    Args:
+        cfg: Конфигурация эксперимента в формате DictConfig
+    
+    Returns:
+        dict: Метрики эксперимента
+    """
     print(f"Конфигурация эксперимента (ClearML):")
     print(OmegaConf.to_yaml(cfg))
     
@@ -93,6 +120,22 @@ def run_single_experiment_clearml(cfg: DictConfig):
 
 import traceback
 def run_all_experiments_clearml(config_path: str = "configs/conf/experiments/all_experiments.yaml"):
+    """
+    Запускает несколько экспериментов из YAML файла конфигурации.
+    
+    Функция выполняет:
+    1. Загрузку конфигураций экспериментов из YAML файла
+    2. Последовательный запуск всех экспериментов
+    3. Сбор и сохранение результатов
+    4. Выбор и регистрацию лучшей модели
+    5. Генерацию сводного отчета
+    
+    Args:
+        config_path: Путь к YAML файлу с конфигурациями экспериментов
+    
+    Returns:
+        pd.DataFrame: DataFrame с результатами всех экспериментов
+    """
     import yaml
     
     with open(config_path, "r", encoding='utf-8') as f:
@@ -233,6 +276,15 @@ def run_all_experiments_clearml(config_path: str = "configs/conf/experiments/all
 
 
 def compare_all_models():
+    """
+    Сравнивает все модели в реестре ClearML для различных алгоритмов.
+    
+    Функция выполняет:
+    1. Получение списка моделей для каждого алгоритма
+    2. Сравнение метрик разных версий моделей
+    3. Сохранение результатов сравнения в CSV файл
+    4. Определение лучшей модели по accuracy
+    """
     try:
         model_registry = ClearMLModelRegistry(project_name="LoanClassification_Models")
         algorithms = ["random_forest", "logistic_regression", "xgboost", "svm", "knn"]
@@ -262,6 +314,14 @@ def compare_all_models():
 
 
 if __name__ == "__main__":
+    """
+    Точка входа в приложение.
+    
+    Обрабатывает аргументы командной строки:
+    - Без аргументов: запускает одиночный эксперимент
+    - --all: запускает все эксперименты и сравнивает модели
+    - --compare: только сравнивает модели в реестре
+    """
     if len(sys.argv) > 1:
         if sys.argv[1] == "--all":
             run_all_experiments_clearml()
