@@ -95,7 +95,7 @@ stages:
         cache: false
 
   report:
-    cmd: poetry run python src/generate_report.py
+    cmd: python src/generate_report.py
     deps:
       - src/generate_report.py
     outs:
