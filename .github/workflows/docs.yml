@@ -31,7 +31,7 @@ jobs:
 
       - name: Generate experiment report
         run: |
-          poetry run python src/generate_report.py
+          poetry run dvc repro report
 
       - name: Build and deploy
         run: |

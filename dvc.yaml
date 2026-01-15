@@ -93,3 +93,13 @@ stages:
     metrics:
     - evaluation/evaluation_metrics_clearml.json:
         cache: false
+
+  report:
+    cmd: poetry run python src/generate_report.py
+    deps:
+      - src/generate_report.py
+      - metrics/
+    outs:
+      - docs/experiments.md
+      - docs/assets/accuracy_comparison.png
+      - docs/assets/f1_score_comparison.png
