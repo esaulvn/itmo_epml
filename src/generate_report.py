@@ -55,7 +55,7 @@ with open(report_path, "w", encoding="utf-8") as f:
     f.write("## Сравнительная таблица моделей\n\n")
     f.write(table_md)
     f.write("\n\n## Визуализация результатов\n\n")
-    f.write(f"![Accuracy Comparison]({acc_path.relative_to(REPORTS_DIR.parent)})\n\n")
-    f.write(f"![F1-score Comparison]({f1_path.relative_to(REPORTS_DIR.parent)})\n\n")
+    f.write("![Accuracy Comparison](assets/accuracy_comparison.png)\n\n")
+    f.write(f"![F1-score Comparison](assets/f1_score_comparison.png)\n\n")
 
 print(f"Report generated: {report_path}")

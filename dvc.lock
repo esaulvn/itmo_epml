@@ -218,3 +218,23 @@ stages:
       md5: 6bb26b143b437eafa12abcd83d55f9ba.dir
       size: 4327
       nfiles: 4
+  report:
+    cmd: python src/generate_report.py
+    deps:
+    - path: src/generate_report.py
+      hash: md5
+      md5: a141532b70906639620aaf9bd83fd45f
+      size: 1868
+    outs:
+    - path: docs/assets/accuracy_comparison.png
+      hash: md5
+      md5: 452c6f88767a7a1978d9db0d1ecf9108
+      size: 39356
+    - path: docs/assets/f1_score_comparison.png
+      hash: md5
+      md5: 703a8d8b94c49a843c77f56892fe81c1
+      size: 38531
+    - path: docs/experiments.md
+      hash: md5
+      md5: 96c4f83e06c4acab1e6c8bf095fa0219
+      size: 1898
