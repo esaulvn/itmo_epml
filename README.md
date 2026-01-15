@@ -26,23 +26,26 @@ poetry install
 poetry install --with dev
 ```
 
-*   Создан requirements.txt 
 *   Создан Dockerfile 
 
 ```
 FROM python:3.13-slim
 
+RUN pip install --no-cache-dir poetry
+
 WORKDIR /app
 
-COPY requirements.txt .
+COPY pyproject.toml poetry.lock* ./
 
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN poetry config virtualenvs.in-project true \
+    && poetry config virtualenvs.create true \
+    && poetry install --no-root --no-interaction --no-ansi
 
-COPY . /app
+COPY . .
 
-CMD ["python", "src/main.py"]
+CMD ["/app/.venv/bin/python", "src/main.py"]
 ```
+![alt text](image.png)
 
 # Git workflow:
 *   Настроне Git репозиторий, создан .gitignore для ML проекта, исключены виртуальные среды, модели, данные.
