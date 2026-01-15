@@ -98,7 +98,6 @@ stages:
     cmd: poetry run python src/generate_report.py
     deps:
       - src/generate_report.py
-      - metrics/
     outs:
       - docs/experiments.md
       - docs/assets/accuracy_comparison.png
